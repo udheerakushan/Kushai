@@ -1,5 +1,12 @@
+import streamlit as st
+from groq import Groq
 import faiss
 import numpy as np
+from sentence_transformers import SentenceTransformer
+import wikipediaapi
+from ddgs import DDGS
+
+# ඊට පස්සේ @st.cache_resource...
 
 @st.cache_resource
 def init_kushai():
