@@ -2,6 +2,7 @@ import streamlit as st
 from groq import Groq
 import wikipediaapi
 from ddgs import DDGS
+from supabase import create_client
 
 # Page config
 st.set_page_config(
@@ -155,17 +156,24 @@ def simple_search(query, chunks):
 @st.cache_resource
 def init_kushai():
     wiki = wikipediaapi.Wikipedia(language='en', user_agent='Kushai/1.0')
-    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-    return wiki, client
+    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    supabase = create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_KEY"]
+    )
+    return wiki, groq_client, supabase
 
 def kushai_respond(user_input, history):
-    wiki, groq_client = init_kushai()
+    wiki, groq_client, supabase = init_kushai()
 
+    # RAG search
     knowledge = simple_search(user_input, KNOWLEDGE)
 
+    # Wikipedia
     wiki_page = wiki.page(user_input)
     wiki_r = wiki_page.summary[:500] if wiki_page.exists() else None
 
+    # Web search
     try:
         with DDGS() as d:
             results = list(d.text(user_input, max_results=3))
@@ -195,7 +203,21 @@ Rules:
         model="llama-3.3-70b-versatile",
         messages=messages
     )
-    return response.choices[0].message.content
+    reply = response.choices[0].message.content
+
+    # Save to Supabase ✅
+    try:
+        lang = "si" if any(ord(c) > 3327 for c in user_input) else "en"
+        supabase.table("conversations").insert({
+            "user_message": user_input,
+            "kushai_reply": reply,
+            "language": lang
+        }).execute()
+        print("Saved to Supabase ✅")
+    except Exception as e:
+        print(f"Supabase error: {e}")
+
+    return reply
 
 # Session state
 if "history" not in st.session_state:
@@ -229,7 +251,7 @@ with st.sidebar:
     <div>
         <span class="badge">🦙 Llama 3.3</span>
         <span class="badge">🔍 RAG</span>
-        <span class="badge">🌐 Web</span>
+        <span class="badge">🗄️ Supabase</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -245,7 +267,7 @@ st.markdown("""
     <span class="badge">🌍 Multilingual</span>
     <span class="badge">📚 Educational</span>
     <span class="badge">🔍 Wikipedia + Web</span>
-    <span class="badge">🤖 RAG Powered</span>
+    <span class="badge">🗄️ Self-Learning DB</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -254,7 +276,7 @@ st.markdown("---")
 # Chat
 if not st.session_state.history:
     st.markdown("""
-    <div style="text-align:center; padding:3rem 0; color:#2e2e42;">
+    <div style="text-align:center; padding:3rem 0;">
         <div style="font-size:3rem;">🤖</div>
         <div style="font-size:1.1rem; margin-top:1rem; color:#4b4b6a;">
             Hello! I'm Kushai. Ask me anything!
