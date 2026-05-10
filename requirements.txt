@@ -1,6 +1,7 @@
 streamlit
 groq
-chromadb
+faiss-cpu
 sentence-transformers
 wikipedia-api
 ddgs
+numpy
