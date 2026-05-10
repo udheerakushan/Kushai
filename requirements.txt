@@ -1,7 +1,5 @@
 streamlit
 groq
-faiss-cpu
-sentence-transformers
 wikipedia-api
 ddgs
 numpy
