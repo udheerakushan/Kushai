@@ -2,4 +2,4 @@ streamlit
 groq
 wikipedia-api
 ddgs
-numpy
+supabase
